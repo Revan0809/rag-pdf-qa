@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.config import settings
-from app.embeddings import embed_text, embed_texts
+from app.embeddings import embed_chunks, embed_query
 from app.pdf_processor import PDFExtractionError, process_pdf
 from app.rag import generate_answer
 from app.vector_store import namespace_exists, query_chunks, upsert_chunks
@@ -73,9 +73,9 @@ async def upload_pdf(file: UploadFile = File(...)) -> UploadResponse:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     try:
-        vectors = embed_texts([chunk["text"] for chunk in chunks])
+        vectors = embed_chunks([chunk["text"] for chunk in chunks])
     except Exception as exc:
-        logger.exception("OpenAI embedding request failed during upload")
+        logger.exception("Gemini embedding request failed during upload")
         raise HTTPException(
             status_code=502, detail="Failed to generate embeddings for this document."
         ) from exc
@@ -112,9 +112,9 @@ async def ask_question(request: AskRequest) -> AskResponse:
         )
 
     try:
-        question_vector = embed_text(request.question)
+        question_vector = embed_query(request.question)
     except Exception as exc:
-        logger.exception("OpenAI embedding request failed during ask")
+        logger.exception("Gemini embedding request failed during ask")
         raise HTTPException(
             status_code=502, detail="Failed to embed the question."
         ) from exc
@@ -134,7 +134,7 @@ async def ask_question(request: AskRequest) -> AskResponse:
     try:
         answer = generate_answer(request.question, chunks)
     except Exception as exc:
-        logger.exception("OpenAI chat completion failed during ask")
+        logger.exception("Gemini chat completion failed during ask")
         raise HTTPException(status_code=502, detail="Failed to generate an answer.") from exc
 
     source_pages = sorted({chunk["page"] for chunk in chunks})

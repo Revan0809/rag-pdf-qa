@@ -15,7 +15,7 @@ load_dotenv()
 
 
 class Settings:
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     PINECONE_API_KEY: str = os.getenv("PINECONE_API_KEY", "")
     PINECONE_INDEX_NAME: str = os.getenv("PINECONE_INDEX_NAME", "pdf-rag-index")
 
@@ -27,9 +27,11 @@ class Settings:
         if origin.strip()
     ]
 
-    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    # Gemini's embedding model supports variable output size (Matryoshka
+    # representation learning); pinned to 1536 to match the Pinecone index.
+    EMBEDDING_MODEL: str = "gemini-embedding-001"
     EMBEDDING_DIMENSION: int = 1536
-    CHAT_MODEL: str = "gpt-4o-mini"
+    CHAT_MODEL: str = "gemini-flash-latest"
 
     CHUNK_SIZE_TOKENS: int = 800
     CHUNK_OVERLAP_TOKENS: int = 100
@@ -40,7 +42,7 @@ class Settings:
         missing = [
             name
             for name, value in [
-                ("OPENAI_API_KEY", self.OPENAI_API_KEY),
+                ("GEMINI_API_KEY", self.GEMINI_API_KEY),
                 ("PINECONE_API_KEY", self.PINECONE_API_KEY),
             ]
             if not value
