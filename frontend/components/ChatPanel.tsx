@@ -61,10 +61,10 @@ export default function ChatPanel({ documentId }: ChatPanelProps) {
             className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm whitespace-pre-wrap ${
+              className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm whitespace-pre-wrap shadow-sm ${
                 message.role === "user"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-900"
+                  ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white"
+                  : "bg-white text-gray-900 border border-indigo-100"
               }`}
             >
               <p>{message.content}</p>
@@ -73,7 +73,7 @@ export default function ChatPanel({ documentId }: ChatPanelProps) {
                   {message.sourcePages.map((page) => (
                     <span
                       key={page}
-                      className="text-xs font-medium bg-white text-blue-700 border border-blue-200 rounded-full px-2 py-0.5"
+                      className="text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-full px-2 py-0.5"
                     >
                       Page {page}
                     </span>
@@ -86,7 +86,7 @@ export default function ChatPanel({ documentId }: ChatPanelProps) {
 
         {isAsking && (
           <div className="flex justify-start">
-            <div className="bg-gray-100 text-gray-500 rounded-2xl px-4 py-2 text-sm">
+            <div className="bg-white text-gray-500 border border-indigo-100 rounded-2xl px-4 py-2 text-sm shadow-sm">
               Thinking...
             </div>
           </div>
@@ -102,12 +102,12 @@ export default function ChatPanel({ documentId }: ChatPanelProps) {
           onChange={(e) => setQuestion(e.target.value)}
           placeholder="Ask a question about the document..."
           disabled={isAsking}
-          className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50"
+          className="flex-1 rounded-lg border border-indigo-200 bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
         />
         <button
           type="submit"
           disabled={isAsking || !question.trim()}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          className="rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:bg-gray-300 disabled:opacity-100 disabled:cursor-not-allowed"
         >
           Send
         </button>

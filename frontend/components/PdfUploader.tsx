@@ -69,9 +69,9 @@ export default function PdfUploader({ onUploaded }: PdfUploaderProps) {
         onDragLeave={() => setIsDraggingOver(false)}
         onDrop={handleDrop}
         onClick={() => !isBusy && fileInputRef.current?.click()}
-        className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-10 text-center transition-colors cursor-pointer
-          ${isDraggingOver ? "border-blue-500 bg-blue-50" : "border-gray-300 bg-gray-50"}
-          ${isBusy ? "cursor-not-allowed opacity-70" : "hover:border-blue-400 hover:bg-blue-50"}`}
+        className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-10 text-center transition-colors cursor-pointer
+          ${isDraggingOver ? "border-indigo-500 bg-indigo-50" : "border-indigo-200 bg-white/60"}
+          ${isBusy ? "cursor-not-allowed opacity-70" : "hover:border-indigo-400 hover:bg-indigo-50"}`}
       >
         <input
           ref={fileInputRef}
@@ -89,9 +89,9 @@ export default function PdfUploader({ onUploaded }: PdfUploaderProps) {
 
         {isBusy && (
           <div className="w-full mt-4">
-            <div className="h-2 w-full rounded-full bg-gray-200 overflow-hidden">
+            <div className="h-2 w-full rounded-full bg-indigo-100 overflow-hidden">
               <div
-                className="h-full bg-blue-500 transition-all"
+                className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all"
                 style={{ width: `${status === "processing" ? 100 : progress}%` }}
               />
             </div>
