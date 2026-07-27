@@ -61,8 +61,10 @@ def query_chunks(document_id: str, query_vector: list[float], top_k: int) -> lis
     )
     return [
         {
+            # Pinecone stores metadata numbers as floats; cast back to int
+            # so it doesn't leak into the LLM prompt as e.g. "Page 1.0".
             "text": match["metadata"]["text"],
-            "page": match["metadata"]["page"],
+            "page": int(match["metadata"]["page"]),
             "score": match["score"],
         }
         for match in result["matches"]
