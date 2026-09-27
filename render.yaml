@@ -1,8 +1,8 @@
-# Render Blueprint for the FastAPI backend.
+# Render Blueprint for the Quorum FastAPI backend.
 # Deploy via: Render dashboard -> New -> Blueprint -> point at this repo.
 services:
   - type: web
-    name: pdf-rag-backend
+    name: quorum-backend
     runtime: python
     rootDir: backend
     plan: free
@@ -12,7 +12,7 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
-      - key: OPENAI_API_KEY
+      - key: GEMINI_API_KEY
         sync: false
       - key: PINECONE_API_KEY
         sync: false
