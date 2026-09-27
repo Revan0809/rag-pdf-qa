@@ -6,14 +6,21 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "postinstall": "node scripts/copy-pdf-worker.mjs"
   },
   "dependencies": {
     "next": "14.2.35",
     "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "react-dom": "18.3.1",
+    "framer-motion": "13.4.4",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1",
+    "lucide-react": "1.48.0",
+    "react-pdf": "10.0.1"
   },
   "devDependencies": {
+    "@tailwindcss/typography": "0.5.20",
     "typescript": "5.5.4",
     "@types/node": "20.14.15",
     "@types/react": "18.3.3",

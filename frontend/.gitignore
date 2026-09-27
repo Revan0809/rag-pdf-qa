@@ -1,2 +1,5 @@
 .vercel
 .env*
+
+# Copied by scripts/copy-pdf-worker.mjs on postinstall; regenerated per-environment.
+public/pdf.worker.min.mjs
