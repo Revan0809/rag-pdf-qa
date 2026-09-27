@@ -33,7 +33,7 @@ from app.summary import summarize_document
 from app.vector_store import delete_namespace, namespace_exists, upsert_chunks
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("pdf-rag")
+logger = logging.getLogger("quorum")
 
 settings.validate()
 

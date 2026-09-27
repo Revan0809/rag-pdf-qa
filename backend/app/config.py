@@ -17,7 +17,7 @@ load_dotenv()
 class Settings:
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     PINECONE_API_KEY: str = os.getenv("PINECONE_API_KEY", "")
-    PINECONE_INDEX_NAME: str = os.getenv("PINECONE_INDEX_NAME", "pdf-rag-index")
+    PINECONE_INDEX_NAME: str = os.getenv("PINECONE_INDEX_NAME", "quorum-index")
 
     # Comma-separated list of origins allowed to call this API (the deployed
     # Vercel URL, plus localhost for development).

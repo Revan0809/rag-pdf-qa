@@ -15,7 +15,7 @@ from google.genai import errors as genai_errors
 
 from app.config import settings
 
-logger = logging.getLogger("pdf-rag")
+logger = logging.getLogger("quorum")
 
 client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
