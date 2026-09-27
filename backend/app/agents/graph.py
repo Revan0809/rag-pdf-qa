@@ -5,8 +5,8 @@ conditional single retry back to the Retriever when the Verifier's
 confidence comes back low.
 
     START -> planner --(out_of_scope)--> out_of_scope -> END
-               \--(else)--> retriever -> analyst --(first pass)--> verifier
-                                              \--(retry pass)--> skip_reverification -> END
+               |--(else)--> retriever -> analyst --(first pass)--> verifier
+                                              |--(retry pass)--> skip_reverification -> END
                                   verifier --(confidence=low, first pass)--> retriever
                                   verifier --(else)--> END
 """

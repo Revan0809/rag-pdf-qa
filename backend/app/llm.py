@@ -1,8 +1,10 @@
 """
-Shared Gemini client plus a retry/backoff wrapper for 429s.
+Shared Gemini client plus a retry/backoff wrapper for transient errors.
 
-Gemini's free tier has tight per-minute rate limits, so every call in this
-codebase (embeddings, and every agent's chat call) should go through
+Gemini's free tier has tight per-minute rate limits (429), and the shared
+models also return 503 when they're overloaded independent of your own
+quota - both are worth retrying, unlike a genuine 400/404. Every call in
+this codebase (embeddings, and every agent's chat call) should go through
 `call_with_backoff` rather than calling the client directly.
 """
 import logging
@@ -21,15 +23,17 @@ client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
 _MAX_RETRIES = 4
 _BASE_DELAY_SECONDS = 1.0
+_RETRYABLE_CODES = {429, 503}
 
 T = TypeVar("T")
 
 
 def call_with_backoff(fn: Callable[[], T], on_retry: Optional[Callable[[], None]] = None) -> T:
     """
-    Calls `fn`, retrying with exponential backoff + jitter if Gemini responds
-    with 429 (rate limited). Re-raises immediately on any other error, and
-    re-raises the 429 once retries are exhausted.
+    Calls `fn`, retrying with exponential backoff + jitter on 429 (rate
+    limited) or 503 (model overloaded) - both observed in production, both
+    transient. Re-raises immediately on any other error, and re-raises once
+    retries are exhausted.
 
     `on_retry`, if given, runs right before each retry sleep. Streaming
     callers use it to tell listeners to discard any partial output already
@@ -39,13 +43,14 @@ def call_with_backoff(fn: Callable[[], T], on_retry: Optional[Callable[[], None]
     for attempt in range(_MAX_RETRIES + 1):
         try:
             return fn()
-        except genai_errors.ClientError as exc:
-            is_rate_limited = exc.code == 429
-            if not is_rate_limited or attempt == _MAX_RETRIES:
+        except genai_errors.APIError as exc:
+            is_retryable = exc.code in _RETRYABLE_CODES
+            if not is_retryable or attempt == _MAX_RETRIES:
                 raise
             delay = _BASE_DELAY_SECONDS * (2**attempt) + random.uniform(0, 0.5)
             logger.warning(
-                "Gemini rate limited (attempt %d/%d), retrying in %.1fs",
+                "Gemini returned %d (attempt %d/%d), retrying in %.1fs",
+                exc.code,
                 attempt + 1,
                 _MAX_RETRIES,
                 delay,
