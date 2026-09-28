@@ -95,33 +95,73 @@ flowchart TD
    the top-K by score. For `summary` questions it instead samples a spread
    of chunks across the whole document, since a single query vector would
    over-focus on one part of it.
-3. **Analyst / Synthesizer** (1 LLM call) — writes the answer from the
-   retrieved chunks only, with inline citations like `[Doc name, p.4]`,
-   streaming tokens as they're generated. For `comparison` questions it
-   structures the answer as a per-document breakdown plus a synthesis.
+3. **Analyst / Synthesizer** (1–3 LLM calls) — writes the answer from the
+   retrieved chunks, with inline citations like `[Doc name, p.4]`, streaming
+   tokens as they're generated. It's a **tool-using agent**: if the
+   Retriever's chunks don't look like enough evidence (typically
+   `multi_hop` or `comparison` questions), it can call Gemini native
+   function-calling tools — see below — before answering. For `comparison`
+   questions the final answer is structured as a per-document breakdown
+   plus a synthesis.
 4. **Verifier / Critic** (1 LLM call) — checks every claim in the draft
-   against the retrieved chunks, flags anything unsupported, and returns a
-   confidence score (`high` / `medium` / `low`).
+   against the retrieved chunks (plus anything a tool call fetched), flags
+   anything unsupported, and returns a confidence score (`high` / `medium`
+   / `low`).
 5. **The one retry** — if confidence comes back `low` on the *first* pass,
    the graph loops back to the Retriever with a wider top-K and re-runs the
-   Analyst (1 more LLM call). That second answer ships **without** a second
-   Verifier call and its confidence is downgraded to `medium` — re-verifying
-   would make the worst case 5 LLM calls per question, and Gemini's free
-   tier doesn't have the headroom for that.
+   Analyst (with tool-calling turned **off** for that pass — see the call
+   budget below for why). That second answer ships without a second
+   Verifier call and its confidence is downgraded to `medium`.
 6. `out_of_scope` questions short-circuit right after the Planner with a
    polite "not in these documents" reply — zero further LLM or Pinecone
    calls.
 
-**LLM call budget: at most 4 per question** (Planner, Analyst, Verifier,
-plus one retry Analyst) — a hard constraint given Gemini's free-tier rate
+#### Analyst tools
+
+Declared with plain JSON schemas (`google-genai`'s `parameters_json_schema`)
+and dispatched manually in `backend/app/agents/tools.py`, not handed to the
+SDK's automatic function calling — dispatch needs to validate arguments and
+reject bad ones rather than crash or leak across documents:
+
+| Tool | What it does | Guardrails |
+|---|---|---|
+| `search_documents(query, top_k)` | Embeds `query` and searches it across the documents selected for this question, merged/deduped like the Retriever. | `top_k` clamped to 1–10 regardless of what the model passes. No `document_id` parameter at all, so it's structurally incapable of reaching a document outside the selection. |
+| `get_page(document_id, page)` | Returns every chunk stored for one page, via a Pinecone metadata filter — full page context instead of a similarity-ranked snippet. | `document_id` must be one of the request's selected documents; anything else comes back as `{"error": "..."}` instead of a Pinecone call. |
+| `list_documents()` | Lists the id/name/page count of every selected document. | Only ever reads the request's own selection. Costs a Pinecone read per document, no LLM tokens. |
+
+None of the three cost an LLM call by themselves — only the Gemini turns
+that request or consume a result do. An unrecognized tool name (the model
+occasionally hallucinates one) returns `{"error": "Unknown tool '...'."}`
+rather than raising.
+
+The Analyst gets **at most 2 rounds** to call a tool; if it still wants to
+after that, a final round runs with no tools available at all (forcing a
+text answer), so this always terminates rather than looping.
+
+**LLM call budget** — a hard constraint given Gemini's free-tier rate
 limits, not just a performance nicety. Every Gemini call in the codebase
 (embeddings included) goes through a shared retry-with-backoff wrapper
-(`backend/app/llm.py`) that retries 429s with exponential backoff + jitter.
+(`backend/app/llm.py`) that retries 429 (rate limited) and 503 (model
+overloaded) with exponential backoff + jitter.
+
+| Path | LLM calls |
+|---|---|
+| No tool calls, no retry (most questions) | 3 (Planner, Analyst, Verifier) |
+| Analyst uses tools, no retry | up to 5 (Planner, Analyst ×1–3, Verifier) |
+| Low-confidence retry, no tools needed on either pass | 4 |
+| Low-confidence retry, Analyst used tools on the first pass | up to 6 |
+
+**Worst case: 6 LLM calls per question.** Tool-calling is turned off
+entirely on the retry pass to keep that bound where it is — the retry
+already gets a wider Retriever top-K, which is a cheaper way to gather more
+evidence than another 1–3 tool-calling calls would be.
 
 Every agent appends a `{agent, status, summary, duration_ms}` trace event to
-the shared graph state as it finishes; `/ask/stream` forwards these as SSE
-events in real time, which is what powers the live trace timeline in the
-UI.
+the shared graph state as it finishes — this includes a tool call, whose
+`summary` looks like `"search_documents(query='...', top_k=5) -> 3
+result(s)"`. `/ask/stream` forwards these as SSE events in real time
+(pushed live as each tool call finishes, not just at the end of the
+Analyst's turn), which is what powers the live trace timeline in the UI.
 
 ## Project structure
 
@@ -133,7 +173,9 @@ RAG_pdf/
 │   │   │   ├── state.py            QuorumState TypedDict shared across nodes
 │   │   │   ├── planner.py          classify + rewrite + sub-queries (1 LLM call)
 │   │   │   ├── retriever.py        embed + Pinecone query + merge/dedupe (no LLM)
-│   │   │   ├── analyst.py          cited answer, streamed (1 LLM call)
+│   │   │   ├── analyst.py          tool-using cited answer, streamed (1-3 LLM calls)
+│   │   │   ├── tools.py            tool JSON schemas + validated dispatch (no LLM cost)
+│   │   │   ├── retrieval.py        chunk merge/dedupe shared by retriever.py and tools.py
 │   │   │   ├── verifier.py         confidence check + single-retry gate (1 LLM call)
 │   │   │   └── graph.py            LangGraph wiring
 │   │   ├── llm.py                  shared Gemini client + 429 retry/backoff
@@ -205,7 +247,7 @@ Event types, in emission order:
 
 | Event   | Payload                                                        | Meaning |
 |---------|-----------------------------------------------------------------|---------|
-| `trace` | `{agent, status, summary, duration_ms}`                        | One agent finished a step. |
+| `trace` | `{agent, status, summary, duration_ms}`                        | One agent finished a step — including each tool call the Analyst makes (`agent: "analyst"`, e.g. `summary: "get_page(document_id='...', page=4) -> 2 result(s)"`), pushed live as each one finishes rather than batched at the end. |
 | `token` | `{text}`                                                        | One chunk of the Analyst's streamed answer. |
 | `reset` | `{}`                                                            | A 429 forced the Analyst to restart streaming — discard buffered text so far. |
 | `final` | `{final_answer, citations, confidence}`                         | The graph is done. |

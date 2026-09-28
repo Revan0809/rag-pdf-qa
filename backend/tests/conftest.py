@@ -19,14 +19,34 @@ def make_parsed_response(parsed_model):
     return response
 
 
-def make_stream_chunks(texts: list[str]):
-    """Fake chunks as yielded by generate_content_stream: each has `.text`."""
+def make_stream_chunks(texts: list[str], function_calls: list | None = None):
+    """
+    Fake chunks as yielded by generate_content_stream: each has `.text` and
+    (matching the real SDK, where a chunk with no function-call parts
+    reports None rather than an empty list) `.function_calls`. Pass
+    `function_calls` to have the *last* chunk carry them, mimicking a model
+    turn that ends in a tool call.
+    """
     chunks = []
     for text in texts:
         chunk = MagicMock()
         chunk.text = text
+        chunk.function_calls = None
         chunks.append(chunk)
+    if function_calls:
+        call_chunk = MagicMock()
+        call_chunk.text = None
+        call_chunk.function_calls = function_calls
+        chunks.append(call_chunk)
     return chunks
+
+
+def make_function_call(name: str, args: dict):
+    """A fake google.genai.types.FunctionCall-like object."""
+    call = MagicMock()
+    call.name = name
+    call.args = args
+    return call
 
 
 @pytest.fixture

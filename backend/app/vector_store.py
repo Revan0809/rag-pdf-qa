@@ -110,6 +110,33 @@ def query_chunks(document_id: str, query_vector: list[float], top_k: int) -> lis
     ]
 
 
+def query_chunks_by_page(document_id: str, page: int, limit: int = 50) -> list[dict]:
+    """
+    Returns every chunk stored for a specific page of a document, via a
+    Pinecone metadata filter rather than similarity search — used by the
+    Analyst's get_page tool, when it needs a page's full context rather than
+    whichever chunk happens to rank highest for some query.
+    """
+    index = get_index()
+    result = index.query(
+        vector=[0.0] * settings.EMBEDDING_DIMENSION,
+        top_k=limit,
+        namespace=document_id,
+        filter={"page": {"$eq": page}},
+        include_metadata=True,
+    )
+    return [
+        {
+            "doc_id": document_id,
+            "doc_name": match.metadata.get("doc_name", "Untitled document"),
+            "page": int(match.metadata["page"]),
+            "text": match.metadata["text"],
+            "score": match.score,
+        }
+        for match in result.matches
+    ]
+
+
 def sample_chunks(document_id: str, limit: int = 20) -> list[dict]:
     """
     Returns a spread of chunks across the whole document (ordered by page),
