@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.1.0 — Tool-using Analyst
+
+- The Analyst is now a tool-using agent via Gemini native function calling
+  (manual dispatch, not the SDK's automatic calling, so every argument is
+  validated before it touches Pinecone): `search_documents(query, top_k)`,
+  `get_page(document_id, page)` (Pinecone metadata filter), and
+  `list_documents()`. It still starts from the Retriever's chunks and only
+  reaches for a tool when those don't look like enough evidence.
+- Guardrails: at most 2 tool-calling rounds, then a forced tool-free final
+  round so this always terminates; `top_k` clamped to 1–10; `get_page`
+  rejects any `document_id` outside the request's selected documents;
+  an unrecognized tool name returns an error result instead of crashing.
+  Tool-calling is disabled entirely on the Verifier-triggered retry pass to
+  keep the worst-case call budget bounded.
+- New worst-case LLM call budget: **6** per question (up from 4), fully
+  documented in the README's call-budget table. The common case (no tool
+  calls, no retry) is unchanged at 3.
+- Tool-call trace events stream live in `/ask/stream` using the existing
+  `trace` SSE event shape and the existing `agent: "analyst"` value, so the
+  frontend's agent-trace timeline shows them with zero frontend changes.
+- Extracted `backend/app/agents/retrieval.py` (chunk merge/dedupe) out of
+  `retriever.py` so both it and the new `search_documents` tool share one
+  implementation.
+
 ## v2.0.0 — Quorum
 
 Renamed from "PDF Q&A" to **Quorum** and rebuilt around a multi-agent

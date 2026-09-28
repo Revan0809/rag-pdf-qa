@@ -24,6 +24,14 @@ def run_graph_as_sse(initial_state: QuorumState) -> Iterator[dict]:
                 yield {"event": "token", "data": json.dumps({"text": payload["text"]})}
             elif payload.get("type") == "answer_reset":
                 yield {"event": "reset", "data": "{}"}
+            elif payload.get("type") == "trace":
+                # A tool-call trace event pushed mid-node (e.g. from the
+                # Analyst's tool-calling loop), not one returned in a node's
+                # "updates" - forward it the same way so the UI timeline
+                # doesn't need to know the difference. The node's own
+                # "updates" return also includes it, for /ask's non-streaming
+                # callers, so it isn't tracked separately here.
+                yield {"event": "trace", "data": json.dumps(payload["data"])}
             continue
 
         # mode == "updates": payload is {node_name: partial_state_update}
